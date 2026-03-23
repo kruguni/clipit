@@ -4,7 +4,7 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
-  ListBucketsCommand,
+  HeadBucketCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -47,8 +47,8 @@ export async function testR2Connection(config: R2Config): Promise<boolean> {
       },
     });
 
-    // Test by listing buckets
-    await client.send(new ListBucketsCommand({}));
+    // Test by checking if bucket exists (works with bucket-level permissions)
+    await client.send(new HeadBucketCommand({ Bucket: config.bucketName }));
     return true;
   } catch (error) {
     console.error("R2 connection test failed:", error);

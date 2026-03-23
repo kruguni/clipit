@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
           accountId: config.accountId,
           accessKeyId: config.accessKey,
           secretAccessKey: config.secretKey,
-          bucketName: config.bucket || "clipit-videos",
+          bucketName: config.bucket || "clipit-knowitallservices",
         });
         if (!success) error = "Invalid credentials or connection failed";
         break;

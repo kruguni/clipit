@@ -40,7 +40,7 @@ export default function SettingsPage() {
     cloudflare_account_id: { key: "", isValid: null, isLoading: false },
     cloudflare_access_key: { key: "", isValid: null, isLoading: false },
     cloudflare_secret_key: { key: "", isValid: null, isLoading: false },
-    cloudflare_bucket: { key: "clipit-videos", isValid: null, isLoading: false },
+    cloudflare_bucket: { key: "clipit-knowitallservices", isValid: null, isLoading: false },
   });
 
   const updateConfig = (name: string, value: string) => {
@@ -55,9 +55,12 @@ export default function SettingsPage() {
   };
 
   const testConnection = async (service: string) => {
+    // Determine the config key to update for loading state
+    const configKey = service === "cloudflare" ? "cloudflare_account_id" : service;
+
     setConfigs((prev) => ({
       ...prev,
-      [service]: { ...prev[service], isLoading: true },
+      [configKey]: { ...prev[configKey], isLoading: true },
     }));
 
     try {
@@ -66,7 +69,7 @@ export default function SettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           service,
-          config: service.startsWith("cloudflare")
+          config: service === "cloudflare"
             ? {
                 accountId: configs.cloudflare_account_id.key,
                 accessKey: configs.cloudflare_access_key.key,
@@ -81,7 +84,7 @@ export default function SettingsPage() {
 
       setConfigs((prev) => ({
         ...prev,
-        [service]: { ...prev[service], isValid: data.success, isLoading: false },
+        [configKey]: { ...prev[configKey], isValid: data.success, isLoading: false },
       }));
 
       if (data.success) {
@@ -92,7 +95,7 @@ export default function SettingsPage() {
     } catch {
       setConfigs((prev) => ({
         ...prev,
-        [service]: { ...prev[service], isValid: false, isLoading: false },
+        [configKey]: { ...prev[configKey], isValid: false, isLoading: false },
       }));
       toast.error(`Failed to test ${service} connection`);
     }
