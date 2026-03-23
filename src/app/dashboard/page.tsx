@@ -97,6 +97,7 @@ export default function DashboardPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -143,42 +144,90 @@ export default function DashboardPage() {
 
     setUploadStatus("uploading");
     setUploadProgress(0);
+    setUploadError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("title", projectTitle || selectedFile.name);
+      // Step 1: Get presigned upload URL
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: selectedFile.name,
+          contentType: selectedFile.type || "video/mp4",
+          fileSize: selectedFile.size,
+        }),
+      });
 
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const progress = Math.round((e.loaded / e.total) * 100);
-          setUploadProgress(progress);
-        }
-      };
-
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          const response = JSON.parse(xhr.responseText);
-          setUploadStatus("success");
-          setTimeout(() => {
-            setIsUploadOpen(false);
-            router.push(`/project/${response.projectId}`);
-          }, 1500);
-        } else {
-          setUploadStatus("error");
-        }
-      };
-
-      xhr.onerror = () => {
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json();
+        console.error("Upload URL error:", error);
+        setUploadError(error.error || "Failed to get upload URL");
         setUploadStatus("error");
-      };
+        return;
+      }
 
-      xhr.open("POST", "/api/upload");
-      xhr.send(formData);
-    } catch {
+      const { projectId, uploadUrl, storageKey } = await uploadResponse.json();
+      setUploadProgress(10);
+
+      // Step 2: Upload file directly to R2 using presigned URL
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            // Progress from 10% to 80%
+            const progress = 10 + Math.round((e.loaded / e.total) * 70);
+            setUploadProgress(progress);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`R2 upload failed (${xhr.status}): ${xhr.statusText}`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error during R2 upload"));
+
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", selectedFile.type);
+        xhr.send(selectedFile);
+      });
+
+      setUploadProgress(85);
+
+      // Step 3: Start processing
+      const processResponse = await fetch("/api/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          title: projectTitle || selectedFile.name.replace(/\.[^/.]+$/, ""),
+          storageKey,
+        }),
+      });
+
+      if (!processResponse.ok) {
+        const error = await processResponse.json();
+        console.error("Process error:", error);
+        setUploadError(error.error || "Failed to start processing");
+        setUploadStatus("error");
+        return;
+      }
+
+      setUploadProgress(100);
+      setUploadStatus("success");
+
+      setTimeout(() => {
+        setIsUploadOpen(false);
+        router.push(`/project/${projectId}`);
+      }, 1500);
+    } catch (err) {
+      console.error("Upload error:", err);
       setUploadStatus("error");
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
     }
   };
 
@@ -186,6 +235,7 @@ export default function DashboardPage() {
     setSelectedFile(null);
     setUploadProgress(0);
     setUploadStatus("idle");
+    setUploadError(null);
     setProjectTitle("");
   };
 
@@ -291,7 +341,7 @@ export default function DashboardPage() {
               {/* Error Message */}
               {uploadStatus === "error" && (
                 <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
-                  Upload failed. Please try again.
+                  {uploadError || "Upload failed. Please try again."}
                 </div>
               )}
 
