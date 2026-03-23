@@ -10,55 +10,105 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// NextAuth.js Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// App Models
 model User {
-  id        String    @id @default(cuid())
-  email     String    @unique
-  name      String?
-  avatar    String?
-  plan      Plan      @default(FREE)
-  credits   Int       @default(5)
-  projects  Project[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?   // For email/password auth
+  phone         String?   @unique
+  phoneVerified DateTime?
+  plan          Plan      @default(FREE)
+  credits       Int       @default(5)
+
+  accounts      Account[]
+  sessions      Session[]
+  projects      Project[]
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  title       String
-  videoUrl    String   // Original video URL in storage
-  thumbnailUrl String? // Generated thumbnail
-  duration    Int      // Duration in seconds
-  status      Status   @default(UPLOADING)
-  transcript  Json?    // Full transcript with word-level timestamps
-  speakers    Json?    // Speaker diarization data
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clips       Clip[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String   @id @default(cuid())
+  title          String
+  videoUrl       String   // Original video URL in storage
+  storageKey     String?  // R2 storage key
+  thumbnailUrl   String?  // Generated thumbnail
+  duration       Int      // Duration in seconds
+  status         Status   @default(UPLOADING)
+  transcriptionId String? // AssemblyAI transcript ID
+  transcript     Json?    // Full transcript with word-level timestamps
+  speakers       Json?    // Speaker diarization data
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clips          Clip[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   @@index([userId])
 }
 
 model Clip {
-  id            String   @id @default(cuid())
-  projectId     String
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title         String?  // AI-generated title
-  startTime     Float    // Start time in seconds
-  endTime       Float    // End time in seconds
-  transcript    String   // Clip transcript text
-  viralityScore Float    // 0-100 score
-  hookScore     Float    // How strong the opening hook is (0-100)
-  engagementScore Float  // Predicted engagement (0-100)
-  aspectRatio   AspectRatio @default(PORTRAIT)
-  captionStyle  CaptionStyle @default(MODERN)
-  status        Status   @default(PENDING)
-  outputUrl     String?  // Rendered clip URL
-  thumbnailUrl  String?  // Clip thumbnail
-  faceData      Json?    // Face tracking coordinates
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String       @id @default(cuid())
+  projectId       String
+  project         Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title           String?      // AI-generated title
+  startTime       Float        // Start time in seconds
+  endTime         Float        // End time in seconds
+  transcript      String       // Clip transcript text
+  viralityScore   Float        // 0-100 score
+  hookScore       Float        // How strong the opening hook is (0-100)
+  engagementScore Float        // Predicted engagement (0-100)
+  aspectRatio     AspectRatio  @default(PORTRAIT)
+  captionStyle    CaptionStyle @default(MODERN)
+  status          Status       @default(PENDING)
+  outputUrl       String?      // Rendered clip URL
+  thumbnailUrl    String?      // Clip thumbnail
+  faceData        Json?        // Face tracking coordinates
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 
   @@index([projectId])
 }
@@ -71,6 +121,7 @@ enum Status {
   RENDERING
   COMPLETED
   FAILED
+  PENDING
 }
 
 enum Plan {

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { UserMenu } from "@/components/user-menu";
 import {
   Upload,
   Sparkles,
@@ -138,14 +140,7 @@ export default function Home() {
                 Pricing
               </a>
             </nav>
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" className="text-gray-300 hover:text-white">
-                Sign In
-              </Button>
-              <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white">
-                Get Started
-              </Button>
-            </div>
+            <UserMenu />
           </div>
         </div>
       </header>
