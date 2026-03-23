@@ -199,12 +199,13 @@ export default function DashboardPage() {
       setUploadProgress(85);
 
       // Step 3: Start processing
+      const title = projectTitle || selectedFile.name.replace(/\.[^/.]+$/, "");
       const processResponse = await fetch("/api/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
-          title: projectTitle || selectedFile.name.replace(/\.[^/.]+$/, ""),
+          title,
           storageKey,
         }),
       });
@@ -216,6 +217,21 @@ export default function DashboardPage() {
         setUploadStatus("error");
         return;
       }
+
+      const processData = await processResponse.json();
+
+      // Store project data in localStorage for the project page
+      const projectData = {
+        id: projectId,
+        title,
+        storageKey,
+        transcriptionId: processData.transcriptionId,
+        status: "transcribing",
+        createdAt: new Date().toISOString(),
+      };
+      const existingProjects = JSON.parse(localStorage.getItem("clipit_projects") || "[]");
+      existingProjects.unshift(projectData);
+      localStorage.setItem("clipit_projects", JSON.stringify(existingProjects));
 
       setUploadProgress(100);
       setUploadStatus("success");

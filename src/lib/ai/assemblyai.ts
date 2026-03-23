@@ -55,7 +55,7 @@ export async function startTranscription(
 
   const transcript = await client.transcripts.submit({
     audio_url: audioUrl,
-    speech_model: "universal-2" as any,
+    speech_models: ["universal-2"] as any,
     speaker_labels: true,
     auto_highlights: true,
     webhook_url: webhookUrl,
@@ -178,7 +178,7 @@ export async function transcribeVideo(
 
   const transcript = await client.transcripts.transcribe({
     audio_url: audioUrl,
-    speech_model: "universal-2" as any,
+    speech_models: ["universal-2"] as any,
     speaker_labels: true,
     auto_highlights: true,
   });
