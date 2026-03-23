@@ -1,23 +1,22 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
-import Facebook from "next-auth/providers/facebook";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 
-// Note: PrismaClient will be used once database is connected
-// For now, we'll use a mock adapter for development
-
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // adapter: PrismaAdapter(prisma), // Uncomment when database is connected
+  debug: true,
+  trustHost: true,
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    Facebook({
-      clientId: process.env.FACEBOOK_CLIENT_ID!,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          prompt: "consent",
+          access_type: "offline",
+          response_type: "code",
+        },
+      },
     }),
     Credentials({
       name: "Email",
@@ -29,26 +28,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
-
-        // In production, query the database
-        // const user = await prisma.user.findUnique({
-        //   where: { email: credentials.email as string },
-        // });
-
-        // For development, use a mock user
-        const mockUser = {
+        return {
           id: "1",
           email: credentials.email as string,
           name: "Test User",
           image: null,
         };
-
-        // In production, verify password:
-        // if (!user?.password) return null;
-        // const isValid = await bcrypt.compare(credentials.password as string, user.password);
-        // if (!isValid) return null;
-
-        return mockUser;
       },
     }),
   ],
@@ -57,21 +42,47 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/auth/error",
   },
   callbacks: {
+    async signIn({ user, account, profile }) {
+      console.log("[AUTH] signIn callback:", { user, account: account?.provider, profile: profile?.email });
+      return true;
+    },
+    async redirect({ url, baseUrl }) {
+      console.log("[AUTH] redirect callback:", { url, baseUrl });
+      // Handle relative URLs
+      if (url.startsWith("/")) return `${baseUrl}${url}`;
+      // Handle same-origin URLs
+      if (new URL(url).origin === baseUrl) return url;
+      return baseUrl;
+    },
     async session({ session, token }) {
       if (token.sub && session.user) {
         session.user.id = token.sub;
       }
       return session;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.sub = user.id;
+      }
+      if (account) {
+        console.log("[AUTH] jwt callback with account:", account.provider);
       }
       return token;
     },
   },
   session: {
     strategy: "jwt",
+  },
+  logger: {
+    error(code, ...message) {
+      console.error("[AUTH ERROR]", code, ...message);
+    },
+    warn(code, ...message) {
+      console.warn("[AUTH WARN]", code, ...message);
+    },
+    debug(code, ...message) {
+      console.log("[AUTH DEBUG]", code, ...message);
+    },
   },
 });
 

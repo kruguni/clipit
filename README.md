@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ClipIT - AI Video Clipping Platform
+
+AI-powered platform that automatically creates engaging 60-second clips from videos and podcasts.
+
+## Tech Stack
+
+- **Frontend**: Next.js 16 (App Router), Tailwind CSS, shadcn/ui
+- **Backend**: Next.js API Routes, NextAuth.js v5
+- **AI Services**: AssemblyAI (transcription), OpenAI GPT-4 (highlight detection)
+- **Storage**: Cloudflare R2
+- **Hosting**: Cloudways
+
+## Features
+
+- Video upload with drag-and-drop
+- AI transcription with speaker detection
+- Automatic highlight detection and virality scoring
+- Auto-captions in multiple styles
+- Face tracking and speaker focus
+- Export to TikTok, YouTube, Instagram formats
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+npm install
+```
+
+### Environment Variables
+
+Copy `.env.example` to `.env.local` and configure:
+
+```
+NEXTAUTH_SECRET=your-secret
+NEXTAUTH_URL=http://localhost:3000
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+OPENAI_API_KEY=your-openai-key
+ASSEMBLYAI_API_KEY=your-assemblyai-key
+CLOUDFLARE_ACCOUNT_ID=your-cf-account
+CLOUDFLARE_ACCESS_KEY_ID=your-cf-access-key
+CLOUDFLARE_SECRET_ACCESS_KEY=your-cf-secret
+CLOUDFLARE_BUCKET=your-bucket-name
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+## Deployment (Cloudways)
 
-To learn more about Next.js, take a look at the following resources:
+1. Build locally: `npm run build`
+2. Upload files via SFTP or rsync
+3. Restart the Node.js process
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API routes
+│   │   ├── auth/          # Authentication endpoints
+│   │   ├── upload/        # Video upload
+│   │   ├── process/       # Video processing
+│   │   └── clips/         # Clip management
+│   ├── auth/              # Auth pages (signin, signup)
+│   ├── dashboard/         # User dashboard
+│   └── project/[id]/      # Project view
+├── components/            # React components
+│   └── ui/               # shadcn/ui components
+└── lib/                   # Utilities
+    ├── auth.ts           # NextAuth configuration
+    ├── openai.ts         # OpenAI integration
+    ├── assemblyai.ts     # Transcription service
+    └── r2.ts             # Cloudflare R2 storage
+```
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proprietary - KnowITAll Services

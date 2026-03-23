@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -20,23 +19,54 @@ function SignInForm() {
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
   const error = searchParams.get("error");
 
+  const [csrfToken, setCsrfToken] = useState("");
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSocialSignIn = async (provider: string) => {
-    setIsLoading(provider);
-    await signIn(provider, { callbackUrl });
-  };
+  // Fetch CSRF token on mount
+  useEffect(() => {
+    fetch("/api/auth/csrf")
+      .then((res) => res.json())
+      .then((data) => setCsrfToken(data.csrfToken))
+      .catch(console.error);
+  }, []);
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading("email");
-    await signIn("credentials", {
-      email,
-      password,
-      callbackUrl,
-    });
+
+    // Submit via form
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/api/auth/callback/credentials";
+
+    const csrfInput = document.createElement("input");
+    csrfInput.type = "hidden";
+    csrfInput.name = "csrfToken";
+    csrfInput.value = csrfToken;
+    form.appendChild(csrfInput);
+
+    const emailInput = document.createElement("input");
+    emailInput.type = "hidden";
+    emailInput.name = "email";
+    emailInput.value = email;
+    form.appendChild(emailInput);
+
+    const passwordInput = document.createElement("input");
+    passwordInput.type = "hidden";
+    passwordInput.name = "password";
+    passwordInput.value = password;
+    form.appendChild(passwordInput);
+
+    const callbackInput = document.createElement("input");
+    callbackInput.type = "hidden";
+    callbackInput.name = "callbackUrl";
+    callbackInput.value = callbackUrl;
+    form.appendChild(callbackInput);
+
+    document.body.appendChild(form);
+    form.submit();
   };
 
   return (
@@ -61,19 +91,24 @@ function SignInForm() {
                 <p className="text-sm text-red-400">
                   {error === "OAuthAccountNotLinked"
                     ? "This email is already associated with another account."
+                    : error === "Configuration"
+                    ? "OAuth configuration error. Please try again."
                     : "An error occurred. Please try again."}
                 </p>
               </div>
             )}
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Social Login Buttons */}
-            <div className="space-y-3">
+            {/* Google Login - Form based */}
+            <form action="/api/auth/signin/google" method="POST">
+              <input type="hidden" name="csrfToken" value={csrfToken} />
+              <input type="hidden" name="callbackUrl" value={callbackUrl} />
               <Button
+                type="submit"
                 variant="outline"
                 className="w-full border-slate-700 text-white hover:bg-slate-700 h-11"
-                onClick={() => handleSocialSignIn("google")}
-                disabled={isLoading !== null}
+                disabled={!csrfToken}
+                onClick={() => setIsLoading("google")}
               >
                 {isLoading === "google" ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -99,23 +134,7 @@ function SignInForm() {
                 )}
                 Continue with Google
               </Button>
-
-              <Button
-                variant="outline"
-                className="w-full border-slate-700 text-white hover:bg-slate-700 h-11"
-                onClick={() => handleSocialSignIn("facebook")}
-                disabled={isLoading !== null}
-              >
-                {isLoading === "facebook" ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                  </svg>
-                )}
-                Continue with Facebook
-              </Button>
-            </div>
+            </form>
 
             {/* Divider */}
             <div className="relative">
@@ -167,7 +186,7 @@ function SignInForm() {
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white h-11"
-                disabled={isLoading !== null}
+                disabled={isLoading !== null || !csrfToken}
               >
                 {isLoading === "email" ? (
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
