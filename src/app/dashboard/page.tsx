@@ -1,12 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,49 +34,24 @@ import {
   Sparkles,
   TrendingUp,
   Filter,
+  Upload,
+  X,
+  Loader2,
+  CheckCircle,
+  FileVideo,
 } from "lucide-react";
 
-// Mock data for demo
-const mockProjects = [
-  {
-    id: "1",
-    title: "Marketing Podcast Episode 42",
-    thumbnailUrl: "/api/placeholder/320/180",
-    duration: 3600,
-    status: "COMPLETED" as const,
-    clipCount: 8,
-    createdAt: new Date("2024-03-20"),
-  },
-  {
-    id: "2",
-    title: "Product Demo Video",
-    thumbnailUrl: "/api/placeholder/320/180",
-    duration: 1800,
-    status: "ANALYZING" as const,
-    clipCount: 0,
-    progress: 65,
-    createdAt: new Date("2024-03-21"),
-  },
-  {
-    id: "3",
-    title: "Interview with CEO",
-    thumbnailUrl: "/api/placeholder/320/180",
-    duration: 5400,
-    status: "TRANSCRIBING" as const,
-    clipCount: 0,
-    progress: 30,
-    createdAt: new Date("2024-03-22"),
-  },
-  {
-    id: "4",
-    title: "Tech Tutorial Series Ep 1",
-    thumbnailUrl: "/api/placeholder/320/180",
-    duration: 2700,
-    status: "COMPLETED" as const,
-    clipCount: 5,
-    createdAt: new Date("2024-03-19"),
-  },
-];
+// Projects will be loaded from database in production
+type Project = {
+  id: string;
+  title: string;
+  thumbnailUrl?: string;
+  duration: number;
+  status: "UPLOADING" | "TRANSCRIBING" | "ANALYZING" | "DETECTING_FACES" | "RENDERING" | "COMPLETED" | "FAILED";
+  clipCount: number;
+  progress?: number;
+  createdAt: Date;
+};
 
 const statusConfig = {
   UPLOADING: { label: "Uploading", color: "bg-blue-500", textColor: "text-blue-500" },
@@ -99,9 +81,24 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+}
+
 export default function DashboardPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [projects] = useState(mockProjects);
+  const [projects] = useState<Project[]>([]);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState<"idle" | "uploading" | "success" | "error">("idle");
+  const [projectTitle, setProjectTitle] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredProjects = projects.filter((p) =>
     p.title.toLowerCase().includes(searchQuery.toLowerCase())
@@ -113,8 +110,224 @@ export default function DashboardPage() {
     processing: projects.filter((p) => !["COMPLETED", "FAILED"].includes(p.status)).length,
   };
 
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith("video/")) {
+      setSelectedFile(file);
+      setProjectTitle(file.name.replace(/\.[^/.]+$/, ""));
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setProjectTitle(file.name.replace(/\.[^/.]+$/, ""));
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    setUploadStatus("uploading");
+    setUploadProgress(0);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("title", projectTitle || selectedFile.name);
+
+      const xhr = new XMLHttpRequest();
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const progress = Math.round((e.loaded / e.total) * 100);
+          setUploadProgress(progress);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          const response = JSON.parse(xhr.responseText);
+          setUploadStatus("success");
+          setTimeout(() => {
+            setIsUploadOpen(false);
+            router.push(`/project/${response.projectId}`);
+          }, 1500);
+        } else {
+          setUploadStatus("error");
+        }
+      };
+
+      xhr.onerror = () => {
+        setUploadStatus("error");
+      };
+
+      xhr.open("POST", "/api/upload");
+      xhr.send(formData);
+    } catch {
+      setUploadStatus("error");
+    }
+  };
+
+  const resetUpload = () => {
+    setSelectedFile(null);
+    setUploadProgress(0);
+    setUploadStatus("idle");
+    setProjectTitle("");
+  };
+
+  const openUploadModal = () => {
+    resetUpload();
+    setIsUploadOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
+      {/* Upload Modal */}
+      <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Create New Project</DialogTitle>
+          </DialogHeader>
+
+          {uploadStatus === "success" ? (
+            <div className="py-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-400" />
+              </div>
+              <p className="text-lg font-medium">Upload Complete!</p>
+              <p className="text-gray-400 mt-2">Redirecting to your project...</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Drop Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all ${
+                  isDragging
+                    ? "border-purple-500 bg-purple-500/10"
+                    : selectedFile
+                    ? "border-green-500 bg-green-500/10"
+                    : "border-slate-600 hover:border-purple-500/50 hover:bg-slate-700/50"
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+
+                {selectedFile ? (
+                  <div className="space-y-2">
+                    <FileVideo className="w-12 h-12 text-green-400 mx-auto" />
+                    <p className="font-medium">{selectedFile.name}</p>
+                    <p className="text-sm text-gray-400">{formatFileSize(selectedFile.size)}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedFile(null);
+                      }}
+                      className="text-gray-400 hover:text-white"
+                    >
+                      <X className="w-4 h-4 mr-1" />
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+                    <p className="text-gray-300">
+                      Drag and drop your video here, or <span className="text-purple-400">browse</span>
+                    </p>
+                    <p className="text-sm text-gray-500 mt-2">MP4, MOV, WebM up to 2GB</p>
+                  </>
+                )}
+              </div>
+
+              {/* Project Title */}
+              {selectedFile && (
+                <div className="space-y-2">
+                  <label className="text-sm text-gray-400">Project Title</label>
+                  <Input
+                    value={projectTitle}
+                    onChange={(e) => setProjectTitle(e.target.value)}
+                    placeholder="Enter project title"
+                    className="bg-slate-900/50 border-slate-700 text-white"
+                  />
+                </div>
+              )}
+
+              {/* Upload Progress */}
+              {uploadStatus === "uploading" && (
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Uploading...</span>
+                    <span className="text-purple-400">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2" />
+                </div>
+              )}
+
+              {/* Error Message */}
+              {uploadStatus === "error" && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-red-400 text-sm">
+                  Upload failed. Please try again.
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsUploadOpen(false)}
+                  className="flex-1 border-slate-600 text-gray-300 hover:bg-slate-700"
+                  disabled={uploadStatus === "uploading"}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleUpload}
+                  disabled={!selectedFile || uploadStatus === "uploading"}
+                  className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                >
+                  {uploadStatus === "uploading" ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Start Processing
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-slate-900/70 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -132,7 +345,10 @@ export default function DashboardPage() {
                 <Sparkles className="w-3 h-3 mr-1" />
                 5 clips remaining
               </Badge>
-              <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white">
+              <Button
+                onClick={openUploadModal}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 New Project
               </Button>
@@ -203,6 +419,26 @@ export default function DashboardPage() {
         </div>
 
         {/* Projects Grid */}
+        {projects.length === 0 ? (
+          <Card className="bg-slate-800/30 border-slate-700 border-dashed">
+            <CardContent className="py-16 text-center">
+              <div className="w-20 h-20 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-6">
+                <Video className="w-10 h-10 text-purple-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-white mb-2">No projects yet</h3>
+              <p className="text-gray-400 mb-6 max-w-md mx-auto">
+                Upload your first video to get started. Our AI will automatically find the best clips for you.
+              </p>
+              <Button
+                onClick={openUploadModal}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Your First Video
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
             <Link key={project.id} href={`/project/${project.id}`}>
@@ -286,7 +522,10 @@ export default function DashboardPage() {
           ))}
 
           {/* New Project Card */}
-          <Card className="bg-slate-800/30 border-slate-700 border-dashed hover:border-purple-500/50 transition-all duration-300 cursor-pointer group flex items-center justify-center min-h-[280px]">
+          <Card
+            onClick={openUploadModal}
+            className="bg-slate-800/30 border-slate-700 border-dashed hover:border-purple-500/50 transition-all duration-300 cursor-pointer group flex items-center justify-center min-h-[280px]"
+          >
             <CardContent className="p-6 text-center">
               <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-4 group-hover:bg-purple-500/30 transition-colors">
                 <Plus className="w-8 h-8 text-purple-400" />
@@ -297,6 +536,7 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+        )}
       </main>
     </div>
   );
