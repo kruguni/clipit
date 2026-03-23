@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(cuid())
+  email     String    @unique
+  name      String?
+  avatar    String?
+  plan      Plan      @default(FREE)
+  credits   Int       @default(5)
+  projects  Project[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  title       String
+  videoUrl    String   // Original video URL in storage
+  thumbnailUrl String? // Generated thumbnail
+  duration    Int      // Duration in seconds
+  status      Status   @default(UPLOADING)
+  transcript  Json?    // Full transcript with word-level timestamps
+  speakers    Json?    // Speaker diarization data
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clips       Clip[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Clip {
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title         String?  // AI-generated title
+  startTime     Float    // Start time in seconds
+  endTime       Float    // End time in seconds
+  transcript    String   // Clip transcript text
+  viralityScore Float    // 0-100 score
+  hookScore     Float    // How strong the opening hook is (0-100)
+  engagementScore Float  // Predicted engagement (0-100)
+  aspectRatio   AspectRatio @default(PORTRAIT)
+  captionStyle  CaptionStyle @default(MODERN)
+  status        Status   @default(PENDING)
+  outputUrl     String?  // Rendered clip URL
+  thumbnailUrl  String?  // Clip thumbnail
+  faceData      Json?    // Face tracking coordinates
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+enum Status {
+  UPLOADING
+  TRANSCRIBING
+  ANALYZING
+  DETECTING_FACES
+  RENDERING
+  COMPLETED
+  FAILED
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum AspectRatio {
+  PORTRAIT   // 9:16 (TikTok, Reels, Shorts)
+  SQUARE     // 1:1 (Instagram)
+  LANDSCAPE  // 16:9 (YouTube)
+}
+
+enum CaptionStyle {
+  MODERN     // Word-by-word highlight
+  CLASSIC    // Traditional subtitles
+  BOLD       // Large bold text
+  MINIMAL    // Small, subtle
+  KARAOKE    // Animated word reveal
+}
