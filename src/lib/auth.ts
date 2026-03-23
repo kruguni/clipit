@@ -3,8 +3,20 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 
+// Admin email addresses
+const ADMIN_EMAILS = [
+  "jaco@krugeruniverse.com",
+  "knowitallservices11@gmail.com",
+];
+
+// Helper to check if an email is admin
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return ADMIN_EMAILS.includes(email.toLowerCase());
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  debug: true,
+  debug: process.env.NODE_ENV === "development",
   trustHost: true,
   providers: [
     Google({
@@ -28,6 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
+        // In production, verify against database
         return {
           id: "1",
           email: credentials.email as string,
@@ -42,47 +55,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: "/auth/error",
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
-      console.log("[AUTH] signIn callback:", { user, account: account?.provider, profile: profile?.email });
+    async signIn({ user }) {
+      console.log("[AUTH] signIn:", user.email);
       return true;
     },
     async redirect({ url, baseUrl }) {
-      console.log("[AUTH] redirect callback:", { url, baseUrl });
-      // Handle relative URLs
       if (url.startsWith("/")) return `${baseUrl}${url}`;
-      // Handle same-origin URLs
       if (new URL(url).origin === baseUrl) return url;
       return baseUrl;
     },
     async session({ session, token }) {
-      if (token.sub && session.user) {
-        session.user.id = token.sub;
+      if (session.user) {
+        session.user.id = token.sub || "";
+        session.user.isAdmin = isAdminEmail(token.email as string);
       }
       return session;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.sub = user.id;
-      }
-      if (account) {
-        console.log("[AUTH] jwt callback with account:", account.provider);
+        token.email = user.email;
       }
       return token;
     },
   },
   session: {
     strategy: "jwt",
-  },
-  logger: {
-    error(code, ...message) {
-      console.error("[AUTH ERROR]", code, ...message);
-    },
-    warn(code, ...message) {
-      console.warn("[AUTH WARN]", code, ...message);
-    },
-    debug(code, ...message) {
-      console.log("[AUTH DEBUG]", code, ...message);
-    },
   },
 });
 
