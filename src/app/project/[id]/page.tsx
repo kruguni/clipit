@@ -86,6 +86,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [activeTab, setActiveTab] = useState("clips");
+  const [previewingClip, setPreviewingClip] = useState<Clip | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -199,6 +200,20 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
   const handleTimeUpdate = () => {
     if (videoRef.current) {
       setCurrentTime(videoRef.current.currentTime);
+      // Auto-pause at clip end when previewing a clip
+      if (previewingClip && videoRef.current.currentTime >= previewingClip.endTime) {
+        videoRef.current.pause();
+        setPreviewingClip(null);
+      }
+    }
+  };
+
+  // Play clip preview
+  const playClipPreview = (clip: Clip) => {
+    if (videoRef.current) {
+      videoRef.current.currentTime = clip.startTime;
+      videoRef.current.play();
+      setPreviewingClip(clip);
     }
   };
 
@@ -430,7 +445,13 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                           className={`bg-slate-800/50 border-slate-700 cursor-pointer transition-all duration-300 hover:border-purple-500/50 ${
                             selectedClip?.id === clip.id ? "border-purple-500 ring-1 ring-purple-500/50" : ""
                           }`}
-                          onClick={() => setSelectedClip(clip)}
+                          onClick={() => {
+                            setSelectedClip(clip);
+                            // Seek main video to clip start
+                            if (videoRef.current) {
+                              videoRef.current.currentTime = clip.startTime;
+                            }
+                          }}
                         >
                           <CardContent className="p-4">
                             <div className="flex gap-4">
@@ -532,14 +553,33 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
 
                   {/* Preview */}
                   <div className="aspect-[9/16] bg-slate-900 rounded-lg overflow-hidden relative mb-4">
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
-                      <Video className="w-12 h-12 text-gray-500" />
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center cursor-pointer hover:bg-white/20 transition-colors">
-                        <Play className="w-7 h-7 text-white ml-1" />
+                    {videoUrl ? (
+                      <>
+                        <video
+                          src={`${videoUrl}#t=${selectedClip.startTime}`}
+                          className="absolute inset-0 w-full h-full object-cover"
+                          muted
+                          playsInline
+                        />
+                        <div
+                          className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                          onClick={() => playClipPreview(selectedClip)}
+                        >
+                          <div className="w-14 h-14 rounded-full bg-white/10 backdrop-blur-sm flex items-center justify-center hover:bg-white/20 transition-colors">
+                            <Play className="w-7 h-7 text-white ml-1" />
+                          </div>
+                        </div>
+                        <div className="absolute bottom-2 left-2 right-2 bg-black/60 rounded px-2 py-1">
+                          <p className="text-xs text-white text-center">
+                            {formatTime(selectedClip.startTime)} - {formatTime(selectedClip.endTime)}
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center">
+                        <Video className="w-12 h-12 text-gray-500" />
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <h3 className="font-medium text-white mb-2">{selectedClip.title}</h3>
