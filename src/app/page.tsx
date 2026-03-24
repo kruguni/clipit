@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,13 +20,17 @@ import {
   Video,
   Mic,
   Zap,
+  Loader2,
 } from "lucide-react";
 
 export default function Home() {
+  const router = useRouter();
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -55,17 +60,104 @@ export default function Home() {
 
   const handleFileUpload = (file: File) => {
     setUploadedFile(file);
+    setError(null);
+  };
+
+  const handleGenerateClips = async () => {
+    if (!uploadedFile) return;
+
+    setIsProcessing(true);
     setIsUploading(true);
-    // Simulate upload progress
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setUploadProgress(progress);
-      if (progress >= 100) {
-        clearInterval(interval);
-        setIsUploading(false);
+    setUploadProgress(0);
+    setError(null);
+
+    try {
+      // Step 1: Get presigned upload URL
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: uploadedFile.name,
+          contentType: uploadedFile.type || "video/mp4",
+          fileSize: uploadedFile.size,
+        }),
+      });
+
+      if (!uploadResponse.ok) {
+        const err = await uploadResponse.json();
+        throw new Error(err.error || "Failed to get upload URL");
       }
-    }, 200);
+
+      const { projectId, uploadUrl, storageKey } = await uploadResponse.json();
+      setUploadProgress(10);
+
+      // Step 2: Upload file directly to R2
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const progress = 10 + Math.round((e.loaded / e.total) * 70);
+            setUploadProgress(progress);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            reject(new Error(`Upload failed (${xhr.status})`));
+          }
+        };
+
+        xhr.onerror = () => reject(new Error("Network error during upload"));
+
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", uploadedFile.type);
+        xhr.send(uploadedFile);
+      });
+
+      setUploadProgress(85);
+
+      // Step 3: Start processing
+      const title = uploadedFile.name.replace(/\.[^/.]+$/, "");
+      const processResponse = await fetch("/api/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, title, storageKey }),
+      });
+
+      if (!processResponse.ok) {
+        const err = await processResponse.json();
+        throw new Error(err.error || "Failed to start processing");
+      }
+
+      const processData = await processResponse.json();
+
+      // Store project data in localStorage
+      const projectData = {
+        id: projectId,
+        title,
+        storageKey,
+        transcriptionId: processData.transcriptionId,
+        status: "transcribing",
+        createdAt: new Date().toISOString(),
+      };
+      const existingProjects = JSON.parse(localStorage.getItem("clipit_projects") || "[]");
+      existingProjects.unshift(projectData);
+      localStorage.setItem("clipit_projects", JSON.stringify(existingProjects));
+
+      setUploadProgress(100);
+      setIsUploading(false);
+
+      // Redirect to project page
+      router.push(`/project/${projectId}`);
+    } catch (err) {
+      console.error("Upload error:", err);
+      setError(err instanceof Error ? err.message : "Upload failed");
+      setIsUploading(false);
+      setIsProcessing(false);
+    }
   };
 
   const features = [
@@ -223,19 +315,26 @@ export default function Home() {
                         {(uploadedFile.size / (1024 * 1024)).toFixed(2)} MB
                       </p>
                     </div>
-                    {isUploading && (
+                    {(isUploading || isProcessing) && (
                       <div className="w-full max-w-xs">
                         <Progress value={uploadProgress} className="h-2" />
-                        <p className="text-sm text-gray-400 mt-2 text-center">
-                          Uploading... {uploadProgress}%
+                        <p className="text-sm text-gray-400 mt-2 text-center flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          {uploadProgress < 80 ? "Uploading" : uploadProgress < 100 ? "Processing" : "Redirecting"}... {uploadProgress}%
                         </p>
                       </div>
                     )}
-                    {!isUploading && (
-                      <Button className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white mt-4">
+                    {!isUploading && !isProcessing && (
+                      <Button
+                        onClick={handleGenerateClips}
+                        className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white mt-4"
+                      >
                         <Sparkles className="w-4 h-4 mr-2" />
                         Generate Clips
                       </Button>
+                    )}
+                    {error && (
+                      <p className="text-red-400 text-sm mt-2">{error}</p>
                     )}
                   </div>
                 )}
