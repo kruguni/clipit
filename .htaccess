@@ -1,4 +1,20 @@
 RewriteEngine On
+
+# Serve Next.js static files directly (bypass PHP proxy)
+RewriteRule ^_next/static/(.*)$ .next/static/$1 [L]
+
+# Set proper MIME types for static assets
+<FilesMatch "\.css$">
+    ForceType text/css
+</FilesMatch>
+<FilesMatch "\.js$">
+    ForceType application/javascript
+</FilesMatch>
+<FilesMatch "\.woff2?$">
+    ForceType font/woff2
+</FilesMatch>
+
+# All other requests go through PHP proxy
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php [QSA,L]
