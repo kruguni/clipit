@@ -1,20 +1,29 @@
 RewriteEngine On
+RewriteBase /
 
-# Serve Next.js static files directly (bypass PHP proxy)
+# Serve Next.js static files directly from .next folder
 RewriteRule ^_next/static/(.*)$ .next/static/$1 [L]
 
 # Set proper MIME types for static assets
 <FilesMatch "\.css$">
     ForceType text/css
+    Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
 <FilesMatch "\.js$">
     ForceType application/javascript
+    Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
 <FilesMatch "\.woff2?$">
     ForceType font/woff2
+    Header set Cache-Control "public, max-age=31536000, immutable"
 </FilesMatch>
 
-# All other requests go through PHP proxy
+# Proxy all other requests to Node.js on port 3000
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [QSA,L]
+RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
+
+# Enable mod_proxy headers
+<IfModule mod_headers.c>
+    RequestHeader set X-Forwarded-Proto "https"
+</IfModule>
