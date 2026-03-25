@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -30,18 +30,70 @@ interface ApiConfig {
   key: string;
   isValid: boolean | null;
   isLoading: boolean;
+  isConfigured: boolean;
 }
 
 export default function SettingsPage() {
+  const [isLoadingConfig, setIsLoadingConfig] = useState(true);
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
   const [configs, setConfigs] = useState<Record<string, ApiConfig>>({
-    openai: { key: "", isValid: null, isLoading: false },
-    assemblyai: { key: "", isValid: null, isLoading: false },
-    cloudflare_account_id: { key: "", isValid: null, isLoading: false },
-    cloudflare_access_key: { key: "", isValid: null, isLoading: false },
-    cloudflare_secret_key: { key: "", isValid: null, isLoading: false },
-    cloudflare_bucket: { key: "clipit-knowitallservices", isValid: null, isLoading: false },
+    openai: { key: "", isValid: null, isLoading: false, isConfigured: false },
+    assemblyai: { key: "", isValid: null, isLoading: false, isConfigured: false },
+    cloudflare_account_id: { key: "", isValid: null, isLoading: false, isConfigured: false },
+    cloudflare_access_key: { key: "", isValid: null, isLoading: false, isConfigured: false },
+    cloudflare_secret_key: { key: "", isValid: null, isLoading: false, isConfigured: false },
+    cloudflare_bucket: { key: "clipit-knowitallservices", isValid: null, isLoading: false, isConfigured: false },
   });
+
+  // Load existing configuration on mount
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const response = await fetch("/api/settings/save");
+        if (response.ok) {
+          const data = await response.json();
+          setConfigs((prev) => ({
+            ...prev,
+            openai: {
+              ...prev.openai,
+              key: data.openai || "",
+              isConfigured: !!data.openai
+            },
+            assemblyai: {
+              ...prev.assemblyai,
+              key: data.assemblyai || "",
+              isConfigured: !!data.assemblyai
+            },
+            cloudflare_account_id: {
+              ...prev.cloudflare_account_id,
+              key: data.cloudflare?.accountId || "",
+              isConfigured: !!data.cloudflare?.accountId
+            },
+            cloudflare_access_key: {
+              ...prev.cloudflare_access_key,
+              key: data.cloudflare?.accessKey || "",
+              isConfigured: !!data.cloudflare?.accessKey
+            },
+            cloudflare_secret_key: {
+              ...prev.cloudflare_secret_key,
+              key: "",
+              isConfigured: data.cloudflare?.secretKey === "configured"
+            },
+            cloudflare_bucket: {
+              ...prev.cloudflare_bucket,
+              key: data.cloudflare?.bucket || "clipit-knowitallservices",
+              isConfigured: !!data.cloudflare?.bucket
+            },
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to load config:", err);
+      } finally {
+        setIsLoadingConfig(false);
+      }
+    }
+    loadConfig();
+  }, []);
 
   const updateConfig = (name: string, value: string) => {
     setConfigs((prev) => ({
@@ -234,6 +286,15 @@ export default function SettingsPage() {
           </TabsList>
 
           <TabsContent value="integrations" className="space-y-6">
+            {isLoadingConfig && (
+              <Card className="bg-slate-800/50 border-slate-700">
+                <CardContent className="p-6 flex items-center justify-center gap-3">
+                  <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                  <span className="text-gray-400">Loading configuration...</span>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Info Banner */}
             <Card className="bg-purple-500/10 border-purple-500/30">
               <CardContent className="p-4">
@@ -280,15 +341,27 @@ export default function SettingsPage() {
                 <CardContent className="space-y-4">
                   {service.fields.map((field) => (
                     <div key={field.name} className="space-y-2">
-                      <label className="text-sm text-gray-400">{field.label}</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm text-gray-400">{field.label}</label>
+                        {configs[field.name]?.isConfigured && !configs[field.name]?.key?.startsWith("sk-") && !configs[field.name]?.key?.includes("...") === false && (
+                          <Badge className="bg-green-500/20 text-green-400 border-0 text-xs">
+                            <Check className="w-3 h-3 mr-1" />
+                            Configured
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <Input
                             type={showKeys[field.name] ? "text" : "password"}
                             value={configs[field.name]?.key || ""}
                             onChange={(e) => updateConfig(field.name, e.target.value)}
-                            placeholder={field.placeholder}
-                            className="bg-slate-900/50 border-slate-700 text-white pr-10"
+                            placeholder={configs[field.name]?.isConfigured ? "••••••••••••••••" : field.placeholder}
+                            className={`bg-slate-900/50 border-slate-700 text-white pr-10 ${
+                              configs[field.name]?.isConfigured && configs[field.name]?.key?.includes("...")
+                                ? "text-gray-400"
+                                : ""
+                            }`}
                           />
                           <button
                             type="button"
@@ -318,6 +391,11 @@ export default function SettingsPage() {
                           </Badge>
                         )}
                       </div>
+                      {configs[field.name]?.isConfigured && (
+                        <p className="text-xs text-gray-500">
+                          Enter a new value to replace the existing key
+                        </p>
+                      )}
                     </div>
                   ))}
                   <Button

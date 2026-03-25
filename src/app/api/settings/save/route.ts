@@ -76,8 +76,27 @@ export async function GET() {
   try {
     await ensureConfigDir();
 
-    const data = await readFile(CONFIG_FILE, "utf-8");
-    const config: ApiConfig = JSON.parse(data);
+    let config: ApiConfig = {};
+
+    // Try to load from config file first
+    try {
+      const data = await readFile(CONFIG_FILE, "utf-8");
+      config = JSON.parse(data);
+    } catch {
+      // Config file doesn't exist - check environment variables
+      config = {
+        openai: process.env.OPENAI_API_KEY,
+        assemblyai: process.env.ASSEMBLYAI_API_KEY,
+        cloudflare: process.env.CLOUDFLARE_ACCOUNT_ID
+          ? {
+              accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
+              accessKey: process.env.CLOUDFLARE_ACCESS_KEY_ID || "",
+              secretKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY || "",
+              bucket: process.env.CLOUDFLARE_BUCKET || "clipit-knowitallservices",
+            }
+          : undefined,
+      };
+    }
 
     // Return masked keys for security
     return NextResponse.json({

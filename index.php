@@ -67,4 +67,12 @@ foreach ($headerLines as $line) {
 
 http_response_code($httpCode);
 header('Content-Length: ' . strlen($body));
+
+// Disable caching for HTML pages
+if (strpos($uri, '/_next/static') === false) {
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+}
+
 echo $body;
