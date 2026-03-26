@@ -74,6 +74,12 @@ export function UserMenu() {
             Dashboard
           </DropdownMenuItem>
         </Link>
+        <Link href="/profile">
+          <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-slate-700 cursor-pointer">
+            <User className="w-4 h-4 mr-2" />
+            Profile
+          </DropdownMenuItem>
+        </Link>
         <Link href="/settings">
           <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-slate-700 cursor-pointer">
             <Settings className="w-4 h-4 mr-2" />

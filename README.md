@@ -47,6 +47,10 @@ CLOUDFLARE_ACCOUNT_ID=your-cf-account
 CLOUDFLARE_ACCESS_KEY_ID=your-cf-access-key
 CLOUDFLARE_SECRET_ACCESS_KEY=your-cf-secret
 CLOUDFLARE_BUCKET=your-bucket-name
+
+# Stripe (Payments)
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
 ### Development
