@@ -7,6 +7,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
+// Plan minutes mapping
+const PLAN_MINUTES: Record<string, number> = {
+  free: 30,
+  creator: 150,
+  pro: 500,
+  agency: 2000,
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
@@ -30,33 +38,96 @@ export async function POST(request: NextRequest) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        const userId = session.metadata?.userId;
-        const clips = parseInt(session.metadata?.clips || "0");
+        if (session.mode === "subscription") {
+          const userId = session.metadata?.userId;
+          const planId = session.metadata?.planId;
 
-        if (userId && clips > 0) {
-          // TODO: Add clips to user's account in database
-          console.log(`Adding ${clips} clips to user ${userId}`);
+          if (userId && planId) {
+            console.log(`User ${userId} subscribed to ${planId} plan`);
 
-          // For now, log the successful purchase
-          // In production, update the user's clip balance in the database
+            // TODO: Update user's subscription in database
+            // await prisma.user.update({
+            //   where: { id: userId },
+            //   data: {
+            //     plan: planId,
+            //     minutesAllowed: PLAN_MINUTES[planId] || 30,
+            //     minutesUsed: 0,
+            //     subscriptionId: session.subscription as string,
+            //     subscriptionStatus: 'active',
+            //   },
+            // });
+          }
+        }
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata?.userId;
+        const planId = subscription.metadata?.planId;
+
+        console.log(`Subscription updated for user ${userId}: ${subscription.status}`);
+
+        // TODO: Update subscription status in database
+        // await prisma.user.update({
+        //   where: { id: userId },
+        //   data: {
+        //     subscriptionStatus: subscription.status,
+        //     plan: planId,
+        //   },
+        // });
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata?.userId;
+
+        console.log(`Subscription canceled for user ${userId}`);
+
+        // TODO: Downgrade user to free plan
+        // await prisma.user.update({
+        //   where: { id: userId },
+        //   data: {
+        //     plan: 'free',
+        //     minutesAllowed: 30,
+        //     subscriptionId: null,
+        //     subscriptionStatus: 'canceled',
+        //   },
+        // });
+        break;
+      }
+
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = invoice.subscription as string;
+
+        if (subscriptionId) {
+          // Reset monthly minutes on successful payment
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          const userId = subscription.metadata?.userId;
+          const planId = subscription.metadata?.planId;
+
+          console.log(`Payment succeeded for user ${userId}, resetting minutes`);
+
+          // TODO: Reset minutes for new billing period
           // await prisma.user.update({
           //   where: { id: userId },
-          //   data: { clipBalance: { increment: clips } },
+          //   data: {
+          //     minutesUsed: 0,
+          //     minutesAllowed: PLAN_MINUTES[planId || 'free'] || 30,
+          //   },
           // });
         }
-
         break;
       }
 
-      case "payment_intent.succeeded": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log("Payment succeeded:", paymentIntent.id);
-        break;
-      }
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`Payment failed for invoice ${invoice.id}`);
 
-      case "payment_intent.payment_failed": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        console.log("Payment failed:", paymentIntent.id);
+        // TODO: Send payment failure notification
+        // TODO: Consider downgrading after multiple failures
         break;
       }
 
@@ -73,10 +144,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
-// Disable body parsing for webhooks (Stripe needs raw body)
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};

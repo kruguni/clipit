@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   ArrowLeft,
   CreditCard,
@@ -16,73 +15,138 @@ import {
   Sparkles,
   Zap,
   Crown,
+  Building2,
   AlertCircle,
-  Plus,
-  Minus,
-  Gift,
+  X,
 } from "lucide-react";
 
-interface CreditPackage {
+interface Plan {
   id: string;
-  clips: number;
+  name: string;
   price: number;
-  pricePerClip: number;
-  savings?: number;
+  interval: "month" | "year";
+  minutes: number;
+  videos: string;
+  features: string[];
+  notIncluded?: string[];
   popular?: boolean;
+  icon: React.ElementType;
+  stripePriceId?: string;
 }
 
-const creditPackages: CreditPackage[] = [
+const plans: Plan[] = [
   {
-    id: "starter",
-    clips: 10,
-    price: 20,
-    pricePerClip: 2.00,
+    id: "free",
+    name: "Free",
+    price: 0,
+    interval: "month",
+    minutes: 30,
+    videos: "2-3 videos",
+    features: [
+      "2-3 short videos per month",
+      "Up to 30 minutes of processing",
+      "720p export quality",
+      "Basic caption styles",
+      "Standard processing speed",
+    ],
+    notIncluded: [
+      "ClipIT watermark on exports",
+    ],
+    icon: Sparkles,
   },
   {
     id: "creator",
-    clips: 25,
-    price: 45,
-    pricePerClip: 1.80,
-    savings: 10,
+    name: "Creator",
+    price: 19,
+    interval: "month",
+    minutes: 150,
+    videos: "10-15 videos",
+    features: [
+      "150 minutes of processing/month",
+      "~10-15 videos worth",
+      "1080p HD export quality",
+      "All caption styles",
+      "No watermark",
+      "Priority processing",
+      "Download in all formats",
+    ],
     popular: true,
+    icon: Zap,
+    stripePriceId: "price_creator_monthly",
   },
   {
     id: "pro",
-    clips: 50,
-    price: 80,
-    pricePerClip: 1.60,
-    savings: 20,
+    name: "Pro",
+    price: 39,
+    interval: "month",
+    minutes: 500,
+    videos: "30-50 videos",
+    features: [
+      "500 minutes of processing/month",
+      "~30-50 videos worth",
+      "4K export quality",
+      "All caption styles",
+      "No watermark",
+      "Fastest processing",
+      "Custom branding",
+      "Scheduled publishing",
+      "Analytics dashboard",
+      "Priority support",
+    ],
+    icon: Crown,
+    stripePriceId: "price_pro_monthly",
   },
   {
     id: "agency",
-    clips: 100,
-    price: 150,
-    pricePerClip: 1.50,
-    savings: 25,
+    name: "Agency",
+    price: 99,
+    interval: "month",
+    minutes: 2000,
+    videos: "Unlimited",
+    features: [
+      "2000+ minutes of processing",
+      "Unlimited team members",
+      "4K export quality",
+      "White-label option",
+      "API access",
+      "Custom integrations",
+      "Dedicated account manager",
+      "SLA guarantee",
+      "Custom branding per client",
+      "Bulk processing",
+    ],
+    icon: Building2,
+    stripePriceId: "price_agency_monthly",
   },
 ];
 
 export default function BillingPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [currentPlan, setCurrentPlan] = useState("free");
   const [loading, setLoading] = useState<string | null>(null);
-  const [clipBalance, setClipBalance] = useState(5); // Free clips
-  const [customClips, setCustomClips] = useState(10);
+  const [billingInterval, setBillingInterval] = useState<"month" | "year">("month");
+  const [minutesUsed, setMinutesUsed] = useState(12);
 
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/auth/signin");
     }
-    // TODO: Fetch actual clip balance from API
+    // TODO: Fetch actual subscription data from API
   }, [status, router]);
 
-  const handlePurchase = async (packageId: string, clips: number, price: number) => {
-    setLoading(packageId);
+  const handleSubscribe = async (planId: string) => {
+    if (planId === "free") return;
+
+    setLoading(planId);
     try {
       const response = await fetch("/api/billing/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ packageId, clips, price }),
+        body: JSON.stringify({
+          planId,
+          interval: billingInterval,
+        }),
       });
 
       const data = await response.json();
@@ -99,10 +163,32 @@ export default function BillingPage() {
     }
   };
 
-  const handleCustomPurchase = () => {
-    const price = customClips * 2;
-    handlePurchase("custom", customClips, price);
+  const handleManageSubscription = async () => {
+    setLoading("manage");
+    try {
+      const response = await fetch("/api/billing/portal", {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (error) {
+      console.error("Error:", error);
+    } finally {
+      setLoading(null);
+    }
   };
+
+  const getYearlyPrice = (monthlyPrice: number) => {
+    // 20% discount for yearly
+    return Math.round(monthlyPrice * 12 * 0.8);
+  };
+
+  const currentPlanData = plans.find(p => p.id === currentPlan);
+  const minutesTotal = currentPlanData?.minutes || 30;
 
   if (status === "loading") {
     return (
@@ -139,203 +225,235 @@ export default function BillingPage() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <CreditCard className="w-6 h-6 text-purple-400" />
-            Buy Clip Credits
-          </h1>
-          <p className="text-gray-400 mt-1">Purchase clips and create viral content</p>
-        </div>
-
-        {/* Current Balance */}
-        <Card className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30 mb-8">
-          <CardContent className="p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <p className="text-gray-300 text-sm">Your Clip Balance</p>
-                <div className="flex items-center gap-3">
-                  <span className="text-4xl font-bold text-white">{clipBalance}</span>
-                  <span className="text-gray-400">clips remaining</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 bg-green-500/20 px-4 py-2 rounded-lg border border-green-500/30">
-                <Gift className="w-5 h-5 text-green-400" />
-                <span className="text-green-400 font-medium">5 free clips included</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pricing Info */}
         <div className="text-center mb-8">
-          <h2 className="text-xl font-semibold text-white mb-2">Simple Pay-Per-Clip Pricing</h2>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            Choose Your Plan
+          </h1>
           <p className="text-gray-400">
-            <span className="text-2xl font-bold text-purple-400">$2</span> per clip · Buy more, save more
+            Start free, upgrade when you need more
           </p>
         </div>
 
-        {/* Credit Packages */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {creditPackages.map((pkg) => (
-            <Card
-              key={pkg.id}
-              className={`relative bg-slate-800/50 border-slate-700 hover:border-purple-500/50 transition-colors ${
-                pkg.popular ? "ring-2 ring-purple-500" : ""
+        {/* Billing Toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="bg-slate-800/50 p-1 rounded-lg inline-flex">
+            <button
+              onClick={() => setBillingInterval("month")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                billingInterval === "month"
+                  ? "bg-purple-500 text-white"
+                  : "text-gray-400 hover:text-white"
               }`}
             >
-              {pkg.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                    Best Value
-                  </span>
-                </div>
-              )}
-              {pkg.savings && (
-                <div className="absolute top-3 right-3">
-                  <span className="bg-green-500/20 text-green-400 text-xs font-semibold px-2 py-1 rounded">
-                    Save {pkg.savings}%
-                  </span>
-                </div>
-              )}
-              <CardContent className="p-6 pt-8">
-                <div className="text-center mb-4">
-                  <p className="text-4xl font-bold text-white">{pkg.clips}</p>
-                  <p className="text-gray-400">clips</p>
-                </div>
-
-                <div className="text-center mb-4">
-                  <p className="text-2xl font-bold text-white">${pkg.price}</p>
-                  <p className="text-sm text-gray-400">${pkg.pricePerClip.toFixed(2)} per clip</p>
-                </div>
-
-                <Button
-                  className={`w-full ${
-                    pkg.popular
-                      ? "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                      : "bg-slate-700 hover:bg-slate-600 text-white"
-                  }`}
-                  disabled={loading === pkg.id}
-                  onClick={() => handlePurchase(pkg.id, pkg.clips, pkg.price)}
-                >
-                  {loading === pkg.id ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Buy Now
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingInterval("year")}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                billingInterval === "year"
+                  ? "bg-purple-500 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Yearly
+              <span className="ml-1 text-xs text-green-400">Save 20%</span>
+            </button>
+          </div>
         </div>
 
-        {/* Custom Amount */}
-        <Card className="bg-slate-800/50 border-slate-700 mb-8">
-          <CardHeader>
-            <CardTitle className="text-white flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-purple-400" />
-              Custom Amount
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row items-center gap-4">
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-slate-600 text-white hover:bg-slate-700"
-                  onClick={() => setCustomClips(Math.max(1, customClips - 5))}
-                >
-                  <Minus className="w-4 h-4" />
-                </Button>
-                <div className="w-24">
-                  <Input
-                    type="number"
-                    min="1"
-                    value={customClips}
-                    onChange={(e) => setCustomClips(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="text-center bg-slate-900/50 border-slate-700 text-white text-lg font-bold"
-                  />
+        {/* Current Plan Usage */}
+        {currentPlan !== "free" && (
+          <Card className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30 mb-8">
+            <CardContent className="p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <p className="text-gray-300 text-sm">Current Plan</p>
+                  <p className="text-xl font-semibold text-white capitalize">{currentPlan}</p>
+                </div>
+                <div>
+                  <p className="text-gray-300 text-sm">Minutes Used This Month</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-2 bg-slate-700 rounded-full w-32">
+                      <div
+                        className="h-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                        style={{ width: `${Math.min((minutesUsed / minutesTotal) * 100, 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-white font-medium">{minutesUsed} / {minutesTotal} min</span>
+                  </div>
                 </div>
                 <Button
                   variant="outline"
-                  size="sm"
-                  className="border-slate-600 text-white hover:bg-slate-700"
-                  onClick={() => setCustomClips(customClips + 5)}
+                  className="border-slate-600 text-gray-300 hover:bg-slate-700"
+                  onClick={handleManageSubscription}
+                  disabled={loading === "manage"}
                 >
-                  <Plus className="w-4 h-4" />
-                </Button>
-                <span className="text-gray-400">clips</span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-white">${(customClips * 2).toFixed(2)}</p>
-                  <p className="text-sm text-gray-400">$2.00 per clip</p>
-                </div>
-                <Button
-                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                  disabled={loading === "custom"}
-                  onClick={handleCustomPurchase}
-                >
-                  {loading === "custom" ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                  {loading === "manage" ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   ) : (
-                    <>
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Purchase
-                    </>
+                    <CreditCard className="w-4 h-4 mr-2" />
                   )}
+                  Manage Billing
                 </Button>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* What's Included */}
+        {/* Pricing Plans */}
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {plans.map((plan) => {
+            const Icon = plan.icon;
+            const isCurrentPlan = plan.id === currentPlan;
+            const displayPrice = billingInterval === "year" && plan.price > 0
+              ? Math.round(getYearlyPrice(plan.price) / 12)
+              : plan.price;
+            const yearlyTotal = getYearlyPrice(plan.price);
+
+            return (
+              <Card
+                key={plan.id}
+                className={`relative bg-slate-800/50 border-slate-700 flex flex-col ${
+                  plan.popular ? "ring-2 ring-purple-500" : ""
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      plan.popular
+                        ? "bg-gradient-to-br from-purple-500 to-pink-500"
+                        : "bg-slate-700"
+                    }`}>
+                      <Icon className="w-5 h-5 text-white" />
+                    </div>
+                    <CardTitle className="text-white">{plan.name}</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4 flex-1 flex flex-col">
+                  <div>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-bold text-white">
+                        ${displayPrice}
+                      </span>
+                      <span className="text-gray-400">/mo</span>
+                    </div>
+                    {billingInterval === "year" && plan.price > 0 && (
+                      <p className="text-sm text-gray-500">
+                        ${yearlyTotal}/year (billed annually)
+                      </p>
+                    )}
+                    <p className="text-sm text-purple-400 mt-1">
+                      {plan.minutes} min/month · {plan.videos}
+                    </p>
+                  </div>
+
+                  <ul className="space-y-2 flex-1">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                        <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                        {feature}
+                      </li>
+                    ))}
+                    {plan.notIncluded?.map((feature, i) => (
+                      <li key={`not-${i}`} className="flex items-start gap-2 text-sm text-gray-500">
+                        <X className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Button
+                    className={`w-full mt-auto ${
+                      plan.popular
+                        ? "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                        : isCurrentPlan
+                        ? "bg-slate-700 text-gray-400 cursor-default"
+                        : "bg-slate-700 hover:bg-slate-600 text-white"
+                    }`}
+                    disabled={isCurrentPlan || loading === plan.id}
+                    onClick={() => handleSubscribe(plan.id)}
+                  >
+                    {loading === plan.id ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : isCurrentPlan ? (
+                      "Current Plan"
+                    ) : plan.price === 0 ? (
+                      "Get Started Free"
+                    ) : (
+                      "Upgrade Now"
+                    )}
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* FAQ */}
         <Card className="bg-slate-800/50 border-slate-700 mb-8">
           <CardHeader>
-            <CardTitle className="text-white">What&apos;s Included With Every Clip</CardTitle>
+            <CardTitle className="text-white">Frequently Asked Questions</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                "AI-powered highlight detection",
-                "Auto-generated captions",
-                "1080p HD export quality",
-                "Multiple aspect ratios (9:16, 1:1, 16:9)",
-                "Caption customization",
-                "Virality score analysis",
-                "No watermark",
-                "Unlimited storage (30 days)",
-                "Download in MP4 format",
-              ].map((feature, i) => (
-                <div key={i} className="flex items-center gap-2 text-gray-300">
-                  <Check className="w-4 h-4 text-green-400 flex-shrink-0" />
-                  {feature}
-                </div>
-              ))}
+          <CardContent className="space-y-4">
+            <div>
+              <h4 className="text-white font-medium mb-1">What counts as processing minutes?</h4>
+              <p className="text-gray-400 text-sm">
+                Processing minutes are based on the length of your original video. A 10-minute video uses 10 minutes of your quota, regardless of how many clips you create from it.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-1">Can I change plans anytime?</h4>
+              <p className="text-gray-400 text-sm">
+                Yes! Upgrade or downgrade at any time. When upgrading, you&apos;ll get immediate access to new features. Downgrades take effect at the next billing cycle.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-1">Do unused minutes roll over?</h4>
+              <p className="text-gray-400 text-sm">
+                Minutes reset each billing cycle and don&apos;t roll over. We recommend the plan that fits your typical monthly usage.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-white font-medium mb-1">What payment methods do you accept?</h4>
+              <p className="text-gray-400 text-sm">
+                We accept all major credit cards, Apple Pay, and Google Pay through Stripe.
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Payment Info Notice */}
-        <Card className="bg-purple-500/10 border-purple-500/30">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-purple-400 mt-0.5" />
+        {/* Enterprise CTA */}
+        <Card className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30">
+          <CardContent className="p-6">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div>
-                <h3 className="font-medium text-white mb-1">Secure Payments via Stripe</h3>
-                <p className="text-sm text-gray-400">
-                  All payments are processed securely through Stripe. We accept all major credit cards,
-                  Apple Pay, and Google Pay. Clip credits never expire.
+                <h3 className="font-semibold text-white text-lg">Need a custom plan?</h3>
+                <p className="text-gray-400">
+                  Contact us for custom pricing, volume discounts, or enterprise features.
                 </p>
               </div>
+              <Button
+                variant="outline"
+                className="border-purple-500 text-purple-400 hover:bg-purple-500/20"
+              >
+                Contact Sales
+              </Button>
             </div>
           </CardContent>
         </Card>
+
+        {/* Security Notice */}
+        <div className="mt-8 flex items-center justify-center gap-2 text-sm text-gray-500">
+          <AlertCircle className="w-4 h-4" />
+          Secure payments powered by Stripe. Cancel anytime.
+        </div>
       </main>
     </div>
   );
