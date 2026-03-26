@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 const ADMIN_EMAILS = [
   "jaco@krugeruniverse.com",
   "knowitallservices11@gmail.com",
+  "accounts@knowitallservices.com",
 ];
 
 // Helper to check if an email is admin
