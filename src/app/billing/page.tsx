@@ -18,6 +18,8 @@ import {
   Building2,
   AlertCircle,
   X,
+  Shield,
+  Infinity,
 } from "lucide-react";
 
 interface Plan {
@@ -224,13 +226,46 @@ export default function BillingPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Admin Banner */}
+        {session?.user?.isAdmin && (
+          <Card className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border-emerald-500/30 mb-8">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-emerald-400" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    Admin Access
+                    <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full">
+                      Unlimited
+                    </span>
+                  </h3>
+                  <p className="text-gray-400 text-sm">
+                    You have unlimited clips, no watermarks, and full access to all features.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="flex items-center gap-1 text-emerald-400">
+                    <Infinity className="w-5 h-5" />
+                    <span className="font-semibold">Unlimited</span>
+                  </div>
+                  <p className="text-xs text-gray-500">minutes/month</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Page Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white mb-2">
-            Choose Your Plan
+            {session?.user?.isAdmin ? "Plan Overview" : "Choose Your Plan"}
           </h1>
           <p className="text-gray-400">
-            Start free, upgrade when you need more
+            {session?.user?.isAdmin
+              ? "As an admin, you have unlimited access to all features"
+              : "Start free, upgrade when you need more"}
           </p>
         </div>
 

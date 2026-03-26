@@ -17,6 +17,7 @@ import {
   CreditCard,
   LogOut,
   LayoutDashboard,
+  Shield,
 } from "lucide-react";
 
 export function UserMenu() {
@@ -92,6 +93,17 @@ export function UserMenu() {
             Billing
           </DropdownMenuItem>
         </Link>
+        {session.user?.isAdmin && (
+          <>
+            <DropdownMenuSeparator className="bg-slate-700" />
+            <Link href="/admin">
+              <DropdownMenuItem className="text-emerald-400 hover:text-emerald-300 hover:bg-slate-700 cursor-pointer">
+                <Shield className="w-4 h-4 mr-2" />
+                Admin Dashboard
+              </DropdownMenuItem>
+            </Link>
+          </>
+        )}
         <DropdownMenuSeparator className="bg-slate-700" />
         <DropdownMenuItem
           className="text-red-400 hover:text-red-300 hover:bg-slate-700 cursor-pointer"
