@@ -324,25 +324,27 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="api">
-          <TabsList className="bg-slate-800/50 border border-slate-700 mb-6">
-            <TabsTrigger value="api" className="data-[state=active]:bg-emerald-500">
-              <Key className="w-4 h-4 mr-2" />
+        <Tabs defaultValue="api" orientation="vertical" className="flex gap-6">
+          <TabsList className="flex flex-col h-fit bg-slate-800/50 border border-slate-700 p-2 rounded-lg min-w-[200px]">
+            <TabsTrigger value="api" className="w-full justify-start data-[state=active]:bg-emerald-500 px-4 py-3">
+              <Key className="w-4 h-4 mr-3" />
               API Keys
             </TabsTrigger>
-            <TabsTrigger value="webhooks" className="data-[state=active]:bg-emerald-500">
-              <Webhook className="w-4 h-4 mr-2" />
+            <TabsTrigger value="webhooks" className="w-full justify-start data-[state=active]:bg-emerald-500 px-4 py-3">
+              <Webhook className="w-4 h-4 mr-3" />
               Webhooks
             </TabsTrigger>
-            <TabsTrigger value="stripe" className="data-[state=active]:bg-emerald-500">
-              <CreditCard className="w-4 h-4 mr-2" />
+            <TabsTrigger value="stripe" className="w-full justify-start data-[state=active]:bg-emerald-500 px-4 py-3">
+              <CreditCard className="w-4 h-4 mr-3" />
               Stripe
             </TabsTrigger>
-            <TabsTrigger value="users" className="data-[state=active]:bg-emerald-500">
-              <Users className="w-4 h-4 mr-2" />
+            <TabsTrigger value="users" className="w-full justify-start data-[state=active]:bg-emerald-500 px-4 py-3">
+              <Users className="w-4 h-4 mr-3" />
               Users
             </TabsTrigger>
           </TabsList>
+
+          <div className="flex-1">
 
           {/* API Keys Tab */}
           <TabsContent value="api" className="space-y-6">
@@ -663,6 +665,7 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
           </TabsContent>
+          </div>
         </Tabs>
       </main>
     </div>

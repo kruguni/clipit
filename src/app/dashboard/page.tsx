@@ -39,11 +39,8 @@ import {
   Loader2,
   CheckCircle,
   FileVideo,
-  User,
-  Settings,
-  LogOut,
 } from "lucide-react";
-import { signOut } from "next-auth/react";
+import { UserMenu } from "@/components/user-menu";
 
 // Projects will be loaded from database in production
 type Project = {
@@ -422,34 +419,7 @@ export default function DashboardPage() {
                 <Plus className="w-4 h-4 mr-2" />
                 New Project
               </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  className="h-10 w-10 p-0 text-gray-400 hover:text-white inline-flex items-center justify-center rounded-md hover:bg-slate-700"
-                >
-                  <User className="w-5 h-5" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
-                  <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-slate-700 cursor-pointer">
-                    <Link href="/profile" className="flex items-center w-full">
-                      <User className="w-4 h-4 mr-2" />
-                      Profile
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-gray-300 hover:text-white hover:bg-slate-700 cursor-pointer">
-                    <Link href="/settings" className="flex items-center w-full">
-                      <Settings className="w-4 h-4 mr-2" />
-                      Settings
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => signOut({ callbackUrl: "/" })}
-                    className="text-red-400 hover:text-red-300 hover:bg-slate-700 cursor-pointer"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <UserMenu />
             </div>
           </div>
         </div>
