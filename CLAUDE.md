@@ -104,13 +104,21 @@ All credentials stored in `.env.local` (gitignored).
 
 ---
 
-## Cloudways Deployment Info
+## Cloudways Server Access
 
-- **Server**: Cloudways (Custom App)
+- **Host:** 45.76.126.112
+- **User:** master_dwerfvteuk
+- **Password:** bj8DeZUIkGL%u#
+- **SSH Config:** `ssh cloudways-knowitall` (then enter password)
 - **App Name**: Clips.KnowITAllServices.com
 - **Folder**: `kttmclmqhj` under applications
 - **Stack**: Lightning Stack (Nginx)
 - **Temp Domain**: phpstack-1182486-6299706.cloudwaysapps.com
+
+```bash
+# Quick SSH access
+sshpass -p 'bj8DeZUIkGL%u#' ssh -o StrictHostKeyChecking=no master_dwerfvteuk@45.76.126.112
+```
 
 ### Deployment Steps (when ready):
 1. SSH into Cloudways server

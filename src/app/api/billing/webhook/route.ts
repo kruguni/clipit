@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2024-12-18.acacia",
-});
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error("Stripe secret key not configured");
+  }
+  return new Stripe(key);
+}
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
@@ -17,6 +21,7 @@ const PLAN_MINUTES: Record<string, number> = {
 
 export async function POST(request: NextRequest) {
   try {
+    const stripe = getStripe();
     const body = await request.text();
     const signature = request.headers.get("stripe-signature");
 
@@ -100,7 +105,7 @@ export async function POST(request: NextRequest) {
 
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = invoice.subscription as string;
+        const subscriptionId = (invoice as unknown as { subscription?: string }).subscription;
 
         if (subscriptionId) {
           // Reset monthly minutes on successful payment

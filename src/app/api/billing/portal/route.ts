@@ -2,9 +2,13 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth } from "@/lib/auth";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2024-12-18.acacia",
-});
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error("Stripe secret key not configured");
+  }
+  return new Stripe(key);
+}
 
 export async function POST() {
   try {
@@ -13,6 +17,8 @@ export async function POST() {
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const stripe = getStripe();
 
     // Find customer by email
     const customers = await stripe.customers.list({

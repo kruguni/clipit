@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { auth } from "@/lib/auth";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2024-12-18.acacia",
-});
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error("Stripe secret key not configured");
+  }
+  return new Stripe(key);
+}
 
 // Stripe Price IDs - set these in your Stripe dashboard
 const PRICE_IDS: Record<string, Record<string, string>> = {
@@ -45,6 +49,8 @@ export async function POST(request: NextRequest) {
 
     const planDetails = PLAN_PRICES[planId];
     const priceId = PRICE_IDS[planId]?.[interval];
+
+    const stripe = getStripe();
 
     // Find or create customer
     let customer: Stripe.Customer | undefined;
